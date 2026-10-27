@@ -166,6 +166,13 @@ body::before {
   color: var(--text-heading);
 }
 
+/* 终端输出里的链接 */
+.output-text a {
+  color: var(--text-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .command-highlight {
   color: var(--text-primary);
 }

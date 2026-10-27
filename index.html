@@ -14,7 +14,7 @@
       <div class="window-dots" aria-hidden="true">
         <span></span><span></span><span></span>
       </div>
-      <span class="window-title">root@my-space: ~</span>
+      <span class="window-title">root@Mikuuuuuchan: ~</span>
       <span class="window-version">PERSONAL TERMINAL v0.2</span>
     </header>
 
@@ -26,7 +26,7 @@
 
       <form id="terminal-form" class="command-line" autocomplete="off">
         <label for="command-input" class="prompt">
-          <span class="prompt-user">guest@my-space</span><span class="prompt-path">:~$</span>
+          <span class="prompt-user">guest@Mikuuuuuchan</span><span class="prompt-path">:~$</span>
         </label>
 
         <div class="input-wrap">
@@ -75,7 +75,7 @@
     const welcomeText = `MY SPACE TERMINAL [Version 0.2]
 
 正在初始化个人空间...
-身份：guest@my-space
+身份：guest@Mikuuuuuchan
 环境：Web Simulation
 状态：Online
 
@@ -329,6 +329,30 @@ STACK: HTML / CSS / JavaScript`
       return element;
     }
 
+    // 只把欢迎内容里指定的 GitHub 地址换成真实链接，其余文本原样保留
+    function linkifyGitHubLink(element) {
+      const url = "https://github.com/Mikuuuuuchan";
+      const text = element.textContent;
+      const index = text.indexOf(url);
+
+      if (index === -1) return;
+
+      const anchor = document.createElement("a");
+      anchor.textContent = url;
+      anchor.href = url;
+      anchor.target = "_blank";
+      anchor.rel = "noopener noreferrer";
+
+      const before = text.slice(0, index);
+      const after = text.slice(index + url.length);
+
+      element.textContent = "";
+
+      if (before) element.appendChild(document.createTextNode(before));
+      element.appendChild(anchor);
+      if (after) element.appendChild(document.createTextNode(after));
+    }
+
     function setPrompt(user, path) {
       promptUser.textContent = user;
       promptPath.textContent = path;
@@ -345,7 +369,7 @@ STACK: HTML / CSS / JavaScript`
     }
 
     function refreshPrompt() {
-      setPrompt("guest@my-space", getPromptPath());
+      setPrompt("guest@Mikuuuuuchan", getPromptPath());
     }
 
     function setBusy(busy) {
@@ -404,7 +428,7 @@ STACK: HTML / CSS / JavaScript`
       try {
         await appendBlock(
           "command-history-line",
-          `guest@my-space:${pathBefore}$ ${raw}`
+          `guest@Mikuuuuuchan:${pathBefore}$ ${raw}`
         );
 
         if (command === "clear") {
@@ -416,7 +440,9 @@ STACK: HTML / CSS / JavaScript`
           currentPath = [];
           output.replaceChildren();
           refreshPrompt();
-          await appendBlock("welcome-block", welcomeText);
+
+          const welcomeBlock = await appendBlock("welcome-block", welcomeText);
+          linkifyGitHubLink(welcomeBlock);
           return;
         }
 
@@ -583,6 +609,11 @@ STACK: HTML / CSS / JavaScript`
 
 
     document.addEventListener("click", event => {
+      // 点击链接时不抢输入框焦点，交给浏览器默认跳转
+      if (event.target.closest && event.target.closest("a")) {
+        return;
+      }
+
       if (
         !isStreaming &&
         event.target !== input &&
@@ -634,7 +665,7 @@ STACK: HTML / CSS / JavaScript`
       setBusy(true);
 
       try {
-        setPrompt("root@my-space", ":~~#");
+        setPrompt("root@Mikuuuuuchan", ":~~#");
 
         await sleep(400);
 
@@ -643,7 +674,7 @@ STACK: HTML / CSS / JavaScript`
         const cursor = document.createElement("span");
         cursor.className = "boot-cursor";
 
-        line.textContent = "root@my-space:~~# ";
+        line.textContent = "root@Mikuuuuuchan:~~# ";
 
         // 使用独立元素显示矩形光标
         line.appendChild(cursor);
@@ -672,7 +703,8 @@ STACK: HTML / CSS / JavaScript`
         await sleep(250);
 
         // 展示现有欢迎内容
-        await appendBlock("welcome-block", welcomeText);
+        const welcomeBlock = await appendBlock("welcome-block", welcomeText);
+        linkifyGitHubLink(welcomeBlock);
 
         // 交接给访客，进入根目录
         currentPath = [];
