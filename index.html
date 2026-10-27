@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="一个记录学习、项目与思考的个人终端空间。">
+  <meta name="theme-color" content="#080d09">
+  <title>My Space | Personal Terminal</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="terminal-app">
+    <header class="terminal-titlebar">
+      <div class="window-dots" aria-hidden="true">
+        <span></span><span></span><span></span>
+      </div>
+      <span class="window-title">root@my-space: ~</span>
+      <span class="window-version">PERSONAL TERMINAL v0.2</span>
+    </header>
+
+    <section
+      class="terminal-screen"
+      aria-label="个人主页模拟终端"
+    >
+      <div id="terminal-output" aria-live="polite" aria-relevant="additions"></div>
+
+      <form id="terminal-form" class="command-line" autocomplete="off">
+        <label for="command-input" class="prompt">
+          <span class="prompt-user">guest@my-space</span><span class="prompt-path">:~$</span>
+        </label>
+
+        <div class="input-wrap">
+          <input
+            id="command-input"
+            name="command"
+            type="text"
+            placeholder="输入命令..."
+            spellcheck="false"
+            autocapitalize="off"
+            aria-label="输入终端命令"
+            autofocus
+          >
+          <span class="input-cursor" aria-hidden="true"></span>
+        </div>
+      </form>
+
+      <p class="terminal-hint">
+        ↑ ↓ 浏览历史 · Tab 自动补全
+      </p>
+    </section>
+
+    <footer class="terminal-footer">
+      <span><span class="status-dot"></span> SYSTEM READY</span>
+      <span>BUILT WITH HTML · CSS · JS</span>
+    </footer>
+  </main>
+
+  <script>
+    const form = document.querySelector("#terminal-form");
+    const input = document.querySelector("#command-input");
+    const output = document.querySelector("#terminal-output");
+    const promptUser = document.querySelector(".prompt-user");
+    const promptPath = document.querySelector(".prompt-path");
+
+    const commandHistory = [];
+    let currentPath = []; // 当前目录路径片段，[] 表示根目录 ~
+    let lastCompletionDisplayValue = null;
+    let historyIndex = 0;
+    let isStreaming = false;
+
+    // 输出速度：每批输出几个字符，以及每批之间的间隔
+    const STREAM_CHUNK_SIZE = 4;
+    const STREAM_DELAY = 5;
+
+    const welcomeText = `MY SPACE TERMINAL [Version 0.2]
+
+正在初始化个人空间...
+身份：guest@my-space
+环境：Web Simulation
+状态：Online
+
+========================================
+             WELCOME TO MY SPACE
+========================================
+
+[PROFILE]
+名称：Mikuuuuuchan
+GitHub：https://github.com/Mikuuuuuchan
+outlook：HatsuneMikuKawaiine@outlook.com
+在校大学生，计算机科学与技术专业，对人工智能比较感兴趣
+喜欢的角色是初音未来
+
+[INTERESTS]
+Python \ C++
+软件工程
+数学
+人工智能
+
+[CURRENT DIRECTION]
+持续学习，探索新知。
+通过实践理解技术，通过项目积累经验。
+
+[PHILOSOPHY]
+把想法变成可以运行的东西。
+
+========================================
+泥嚎，欢迎你
+这里记录学习、项目与思考。
+输入 help 查看可用命令。
+========================================`;
+
+
+    const responses = {
+      help: `可用命令：
+
+  help       显示帮助信息
+  whoami     介绍这个空间
+  ls         查看内容目录
+  cd <目录名> 切换目录
+  projects   查看项目(施工中)
+  learning   查看学习记录(施工中)
+  notes      查看随笔与思考(施工中)
+  about      关于这个主页
+  clear      清空终端
+  home       返回欢迎界面`,
+
+      whoami: `这里记录我的学习、正在制作的项目，
+以及那些值得留下来的思考。
+
+这是一个持续生长的个人空间。`
+    };
+
+    // 通用命令：任何目录下都可以使用
+    const baseCommands = ["help", "whoami", "ls", "cd", "clear", "home"];
+
+    // 虚拟文件系统：cd、ls 与 Tab 补全共用这一份目录定义
+    // content 为该目录可直接展示的文本，children 为其子目录
+    const fileSystem = {
+      name: "~",
+      children: {
+        projects: {
+          content: `[PROJECTS]
+
+personal-homepage/
+  个人主页
+  状态：施工中 · V0.2
+
+把想法变成可以运行的东西。
+
+更多项目将在这里逐步添加。`,
+          children: {
+            "personal-homepage": {
+              content: `[PROJECTS]
+
+personal-homepage/
+  个人主页
+  状态：施工中 · V0.2
+  技术栈：HTML / CSS / JavaScript
+
+把想法变成可以运行的东西。
+
+更多项目将在这里逐步添加。`
+            }
+          }
+        },
+        learning: {
+          content: `[LEARNING]
+
+这里将用于整理课程笔记、学习路线、
+练习过程与新的理解。
+
+当前状态：施工中
+
+内容将在未来逐步添加。`
+        },
+        notes: {
+          content: `[NOTES]
+
+一些暂时没有归类，
+但值得记录的想法。
+
+当前状态：施工中
+
+未来可以在这里记录文章、复盘与思考。`
+        },
+        about: {
+          // 根目录 ls 沿用现有展示习惯，about 不带斜杠
+          lsLabel: "about",
+          content: `[ABOUT THIS SPACE]
+
+施工中。。。没有什么好的点子
+这是一个仿终端的个人主页，记录学习、项目与思考。
+
+VERSION: 0.2
+STACK: HTML / CSS / JavaScript`
+        }
+      }
+    };
+
+    function getNode(pathSegments) {
+      let node = fileSystem;
+
+      for (const segment of pathSegments) {
+        if (
+          !node.children ||
+          !Object.prototype.hasOwnProperty.call(node.children, segment)
+        ) {
+          return null;
+        }
+
+        node = node.children[segment];
+      }
+
+      return node;
+    }
+
+    // 当前目录下可以 cd 进入的目标，以及返回根目录 / 上一级的选项
+    function getDirectoryCandidates(partial) {
+      const node = getNode(currentPath) || fileSystem;
+      const names = [];
+
+      if (currentPath.length > 0) names.push("..");
+      names.push("~");
+
+      if (node.children) names.push(...Object.keys(node.children));
+
+      return names
+        .filter(name => name.startsWith(partial))
+        .map(name => `cd ${name}`);
+    }
+
+    function getCommandCandidates(partial) {
+      const rootEntries = currentPath.length === 0 && fileSystem.children
+        ? Object.keys(fileSystem.children)
+        : [];
+
+      return [...baseCommands, ...rootEntries].filter(
+        name => name.startsWith(partial)
+      );
+    }
+
+    function getCompletionCandidates(value) {
+      const parts = value.split(/\s+/);
+      const endsWithSpace = /\s$/.test(value);
+
+      // cd 之后补全目录名
+      if (parts[0].toLowerCase() === "cd") {
+        if (parts.length === 1 && !endsWithSpace) {
+          return ["cd"];
+        }
+
+        const partial = endsWithSpace ? "" : (parts[1] || "").toLowerCase();
+
+        return getDirectoryCandidates(partial);
+      }
+
+      // 补全命令名
+      if (parts.length === 1 && !endsWithSpace) {
+        return getCommandCandidates(parts[0].toLowerCase());
+      }
+
+      return [];
+    }
+
+    function findCommonPrefix(values) {
+      if (values.length === 0) return "";
+
+      let prefix = values[0];
+
+      for (const value of values.slice(1)) {
+        while (!value.startsWith(prefix)) {
+          prefix = prefix.slice(0, -1);
+        }
+      }
+
+      return prefix;
+    }
+
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function scrollToBottom() {
+      window.scrollTo({
+        top: document.documentElement.scrollHeight,
+        behavior: "auto"
+      });
+    }
+
+    function createBlock(className) {
+      const block = document.createElement("div");
+      block.className = `output-block ${className}`;
+
+      const text = document.createElement("pre");
+      text.className = "output-text";
+
+      block.appendChild(text);
+      output.appendChild(block);
+
+      return text;
+    }
+
+    async function streamText(element, text) {
+      for (let i = 0; i < text.length; i += STREAM_CHUNK_SIZE) {
+        element.textContent += text.slice(i, i + STREAM_CHUNK_SIZE);
+        scrollToBottom();
+        await sleep(STREAM_DELAY);
+      }
+    }
+
+    async function typeText(element, text) {
+      for (const char of text) {
+        element.textContent += char;
+
+        // 基础节奏：模拟逐字输入
+        const delay = /[aeiou]/i.test(char)
+          ? 135
+          : 105;
+
+        await sleep(delay);
+        scrollToBottom();
+      }
+    }
+
+    async function appendBlock(className, text) {
+      const element = createBlock(className);
+      await streamText(element, text);
+      return element;
+    }
+
+    function setPrompt(user, path) {
+      promptUser.textContent = user;
+      promptPath.textContent = path;
+    }
+
+    function getPathLabel(pathSegments) {
+      return pathSegments.length === 0
+        ? "~"
+        : `~/${pathSegments.join("/")}`;
+    }
+
+    function getPromptPath() {
+      return `:${getPathLabel(currentPath)}$`;
+    }
+
+    function refreshPrompt() {
+      setPrompt("guest@my-space", getPromptPath());
+    }
+
+    function setBusy(busy) {
+      isStreaming = busy;
+      input.disabled = busy;
+      form.setAttribute("aria-busy", String(busy));
+
+      if (!busy) {
+        input.focus();
+      }
+    }
+
+
+    // 目录的直接子项；没有子目录时返回 null
+    function getDirectoryListing(node) {
+      if (!node.children) return null;
+
+      return Object.entries(node.children).map(
+        ([name, child]) => child.lsLabel || `${name}/`
+      );
+    }
+
+    // 解析 cd 的目标路径；目录不存在时返回 null
+    function resolveTargetPath(target) {
+      if (!target || target === "~") return [];
+
+      const fromRoot = target.startsWith("~/");
+      const next = fromRoot ? [] : [...currentPath];
+      const rest = fromRoot ? target.slice(2) : target;
+
+      for (const segment of rest.split("/")) {
+        if (!segment || segment === ".") continue;
+        if (segment === "..") {
+          next.pop();
+          continue;
+        }
+
+        next.push(segment);
+      }
+
+      return getNode(next) ? next : null;
+    }
+
+    async function runCommand(rawCommand) {
+      const raw = rawCommand.trim();
+      if (!raw || isStreaming) return;
+
+      const parts = raw.split(/\s+/);
+      const command = parts[0].toLowerCase();
+      const args = parts.slice(1);
+      // 命令回显使用执行前的路径
+      const pathBefore = getPathLabel(currentPath);
+
+      setBusy(true);
+
+      try {
+        await appendBlock(
+          "command-history-line",
+          `guest@my-space:${pathBefore}$ ${raw}`
+        );
+
+        if (command === "clear") {
+          output.replaceChildren();
+          return;
+        }
+
+        if (command === "home") {
+          currentPath = [];
+          output.replaceChildren();
+          refreshPrompt();
+          await appendBlock("welcome-block", welcomeText);
+          return;
+        }
+
+        if (command === "cd") {
+          const target = args[0] || "";
+          const nextPath = resolveTargetPath(target);
+
+          if (!nextPath) {
+            await appendBlock(
+              "error-block",
+              `bash: cd: ${target}: No such directory`
+            );
+            return;
+          }
+
+          currentPath = nextPath;
+          refreshPrompt();
+
+          await appendBlock(
+            "system-line",
+            `已进入 ${getPathLabel(currentPath)}。输入 ls 查看目录内容。`
+          );
+          return;
+        }
+
+        if (command === "ls") {
+          const node = getNode(currentPath) || fileSystem;
+          const listing = getDirectoryListing(node);
+
+          await appendBlock(
+            "response-block",
+            listing ? listing.join("\n") : node.content || ""
+          );
+          return;
+        }
+
+        // 兼容入口：直接输入根目录名时，展示该目录已有内容
+        if (
+          args.length === 0 &&
+          fileSystem.children &&
+          Object.prototype.hasOwnProperty.call(fileSystem.children, command) &&
+          fileSystem.children[command].content
+        ) {
+          await appendBlock(
+            "response-block",
+            fileSystem.children[command].content
+          );
+          return;
+        }
+
+        if (Object.prototype.hasOwnProperty.call(responses, command)) {
+          await appendBlock("response-block", responses[command]);
+        } else {
+          await appendBlock(
+            "error-block",
+            `bash: ${command}: command not found\n输入 help 查看可用命令。`
+          );
+        }
+      } finally {
+        lastCompletionDisplayValue = null;
+        setBusy(false);
+        updateInputCursor();
+        scrollToBottom();
+      }
+    }
+
+
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+
+      if (isStreaming) return;
+
+      const command = input.value.trim();
+      if (!command) return;
+
+      commandHistory.push(command);
+      historyIndex = commandHistory.length;
+      input.value = "";
+      updateInputCursor();
+
+      await runCommand(command);
+    });
+
+    input.addEventListener("keydown", event => {
+      if (isStreaming) return;
+
+      // Tab 命令补全
+      if (event.key === "Tab") {
+        event.preventDefault();
+
+        if (event.repeat) return;
+
+        const value = input.value;
+        const candidates = getCompletionCandidates(value);
+
+        if (candidates.length === 0) {
+          return;
+        }
+
+        // 只有一个候选项，直接补全
+        if (candidates.length === 1) {
+          input.value = candidates[0] + " ";
+          updateInputCursor();
+          return;
+        }
+
+        // 有多个候选项时，先尝试补全公共前缀
+        const commonPrefix = findCommonPrefix(candidates);
+
+        if (commonPrefix.length > value.length) {
+          input.value = commonPrefix;
+          updateInputCursor();
+          return;
+        }
+        // 相同输入已经显示过候选项，就不重复输出
+        if (lastCompletionDisplayValue === value) {
+          return;
+        }
+
+        lastCompletionDisplayValue = value;
+
+        // 无法继续补全时，显示候选项
+        const displayCandidates = candidates.map(candidate => {
+          return candidate.startsWith("cd ")
+            ? candidate.slice(3)
+            : candidate;
+        });
+
+        const block = createBlock("response-block");
+        block.textContent = displayCandidates.join("    ");
+        scrollToBottom();
+        return;
+      }
+
+      // 上一条历史命令
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+
+        if (historyIndex > 0) {
+          historyIndex--;
+          input.value = commandHistory[historyIndex];
+          lastCompletionDisplayValue = null;
+          updateInputCursor();
+        }
+      }
+
+      // 下一条历史命令
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+
+        if (historyIndex < commandHistory.length - 1) {
+          historyIndex++;
+          input.value = commandHistory[historyIndex];
+          lastCompletionDisplayValue = null;
+        } else {
+          historyIndex = commandHistory.length;
+          input.value = "";
+          lastCompletionDisplayValue = null;
+        }
+
+        updateInputCursor();
+      }
+    });
+
+
+    document.addEventListener("click", event => {
+      if (
+        !isStreaming &&
+        event.target !== input &&
+        !window.getSelection().toString()
+      ) {
+        input.focus();
+      }
+    });
+
+    const inputWrap = document.querySelector(".input-wrap");
+    const inputCursor = document.querySelector(".input-cursor");
+
+    const measureCanvas = document.createElement("canvas");
+    const measureContext = measureCanvas.getContext("2d");
+
+    function updateInputCursor() {
+      if (!input || !inputCursor || !measureContext) {
+        return;
+      }
+
+      const styles = getComputedStyle(input);
+
+      // 使用与输入框一致的字体参数
+      measureContext.font = styles.font;
+
+      const textWidth = measureContext.measureText(
+        input.value.slice(0, input.selectionEnd ?? input.value.length)
+      ).width;
+
+      // 考虑输入框横向滚动，避免长命令时光标偏移
+      inputCursor.style.left = `${textWidth - input.scrollLeft}px`;
+      inputCursor.style.top = "50%";
+    }
+
+    // 输入、点击、移动光标、获得焦点时，更新矩形光标的位置
+    input.addEventListener("input", () => {
+      lastCompletionDisplayValue = null;
+      updateInputCursor();
+    });
+    input.addEventListener("click", updateInputCursor);
+    input.addEventListener("keyup", updateInputCursor);
+    input.addEventListener("focus", updateInputCursor);
+    input.addEventListener("select", updateInputCursor);
+
+    window.addEventListener("resize", updateInputCursor);
+
+    // 启动终端：显示 root 提示符，再流式输出欢迎信息
+    async function bootTerminal() {
+      setBusy(true);
+
+      try {
+        setPrompt("root@my-space", ":~~#");
+
+        await sleep(400);
+
+        // 创建启动命令行
+        const line = createBlock("command-history-line");
+        const cursor = document.createElement("span");
+        cursor.className = "boot-cursor";
+
+        line.textContent = "root@my-space:~~# ";
+
+        // 使用独立元素显示矩形光标
+        line.appendChild(cursor);
+
+        await sleep(350);
+
+        // 模拟输入 home
+        const command = document.createElement("span");
+        line.insertBefore(command, cursor);
+
+        await typeText(command, "home");
+
+        await sleep(450);
+
+        // 命令输入完成，停止闪烁光标
+        cursor.remove();
+
+        // 输出启动状态
+        await appendBlock(
+          "system-line",
+          "Initializing personal space...\n" +
+          "[ OK ] Profile loaded.\n" +
+          "[ OK ] Welcome environment ready."
+        );
+
+        await sleep(250);
+
+        // 展示现有欢迎内容
+        await appendBlock("welcome-block", welcomeText);
+
+        // 交接给访客，进入根目录
+        currentPath = [];
+        refreshPrompt();
+      } finally {
+        setBusy(false);
+        input.focus();
+        updateInputCursor();
+        scrollToBottom();
+      }
+    }
+
+    bootTerminal();
+  </script>
+</body>
+</html>
