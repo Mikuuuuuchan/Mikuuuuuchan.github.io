@@ -22,3 +22,7 @@ V0.1：完成首页、导航、项目展示占位区、学习记录、随笔和�
 ## 后续计划
 
 根据实际需要逐步完善项目展示、学习记录和文章内容。
+
+## GitHub 仓库
+
+[Mikuuuuuchan.github.io](https://github.com/Mikuuuuuchan/Mikuuuuuchan.github.io)
