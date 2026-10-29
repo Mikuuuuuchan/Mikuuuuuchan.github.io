@@ -119,6 +119,7 @@ Python \ C++
 
   help       显示帮助信息
   whoami     介绍这个空间
+  neofetch   显示终端身份卡
   ls         查看内容目录
   cd <目录名> 切换目录
   pwd        显示当前目录
@@ -138,7 +139,7 @@ Python \ C++
     };
 
     // 通用命令：任何目录下都可以使用
-    const baseCommands = ["help", "whoami", "ls", "cd", "pwd","tree", "clear", "home", "style",];
+    const baseCommands = ["help", "whoami", "ls", "cd", "pwd","tree", "clear", "home", "style", "neofetch",];
 
     // 虚拟文件系统：cd、ls 与 Tab 补全共用这一份目录定义
     // content 为该目录可直接展示的文本，children 为其子目录
@@ -434,6 +435,53 @@ STACK: HTML / CSS / JavaScript`
         : `${basePath}/${currentPath.join("/")}`;
     }
 
+    // neofetch 身份卡：原创 ASCII 小猫 + 资料栏。
+    // 动态字段直接读取 currentTheme / getWorkingDirectory()，
+    // 不单独维护主题或目录状态。
+    const NEOFETCH_LOGO = [
+      " /\\_/\\ ",
+      "( o.o )",
+      " > ^ < ",
+    ];
+
+    function buildNeofetchFields() {
+      return [
+        "Mikuuuuuchan@my-space",
+        "---------------------",
+        "Environment: my-space",
+        "Shell: web-sh (simulated terminal)",
+        `Theme: ${currentTheme}`,
+        `Directory: ${getWorkingDirectory()}`,
+        "Major: 计算机科学与技术",
+        "Interests: Python / C++ / 人工智能",
+        "Favorite: 初音未来",
+        "Motto: 把想法变成可以运行的东西。",
+      ];
+    }
+
+    // 身份卡使用专用结构：图案与资料分成两个 <pre>，
+    // 由 CSS 决定宽屏并排、窄屏纵向，避免 ASCII 画被自动换行折断。
+    // 全程 createElement + textContent，不使用 innerHTML。
+    async function appendNeofetchCard() {
+      const block = document.createElement("div");
+      block.className = "output-block response-block neofetch-card";
+
+      const logo = document.createElement("pre");
+      logo.className = "output-text neofetch-logo";
+
+      const info = document.createElement("pre");
+      info.className = "output-text neofetch-info";
+
+      block.appendChild(logo);
+      block.appendChild(info);
+      output.appendChild(block);
+
+      await streamText(logo, NEOFETCH_LOGO.join("\n"));
+      await streamText(info, buildNeofetchFields().join("\n"));
+
+      return info;
+    }
+
     function getPromptPath() {
       return `:${getPathLabel(currentPath)}$`;
     }
@@ -600,6 +648,16 @@ STACK: HTML / CSS / JavaScript`
             lines.join("\n")
           );
 
+          return;
+        }
+
+        if (command === "neofetch") {
+          if (args.length > 0) {
+            await appendBlock("error-block", "neofetch: usage: neofetch");
+            return;
+          }
+
+          await appendNeofetchCard();
           return;
         }
 

@@ -224,6 +224,38 @@ body::before {
   color: var(--text-heading);
 }
 
+/* neofetch 身份卡：宽屏下图案在左、资料在右 */
+.neofetch-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 2ch;
+}
+
+.neofetch-card .output-text {
+  margin: 0;
+}
+
+/* ASCII 图案固定等宽排版，永不自动换行、永不折断 */
+.neofetch-logo {
+  flex-shrink: 0;
+  white-space: pre;
+  overflow-wrap: normal;
+}
+
+/* 资料栏允许换行，但不撑破终端容器 */
+.neofetch-info {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 窄屏切换为纵向排列：图案在上、资料在下 */
+@media (max-width: 550px) {
+  .neofetch-card {
+    flex-direction: column;
+    gap: 0.5em;
+  }
+}
+
 /* 终端输出里的链接 */
 .output-text a {
   color: var(--text-primary);
