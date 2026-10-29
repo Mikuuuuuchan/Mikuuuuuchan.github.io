@@ -117,6 +117,8 @@ Python \ C++
   whoami     介绍这个空间
   ls         查看内容目录
   cd <目录名> 切换目录
+  pwd        显示当前目录
+  tree       显示文件结构
   projects   查看项目(施工中)
   learning   查看学习记录(施工中)
   notes      查看随笔与思考(施工中)
@@ -131,7 +133,7 @@ Python \ C++
     };
 
     // 通用命令：任何目录下都可以使用
-    const baseCommands = ["help", "whoami", "ls", "cd", "clear", "home"];
+    const baseCommands = ["help", "whoami", "ls", "cd", "pwd","tree", "clear", "home",];
 
     // 虚拟文件系统：cd、ls 与 Tab 补全共用这一份目录定义
     // content 为该目录可直接展示的文本，children 为其子目录
@@ -212,6 +214,34 @@ STACK: HTML / CSS / JavaScript`
       }
 
       return node;
+    }
+
+    function buildTreeLines(node, prefix = "") {
+      const entries = Object.entries(node.children ?? {});
+
+      return entries.flatMap(([name, child], index) => {
+        const isLast = index === entries.length - 1;
+        const branch = isLast ? "└── " : "├── ";
+
+        // 当前文件系统通过 children 字段区分目录和文件
+        const isDirectory = child.children !== undefined;
+        const displayName = isDirectory ? `${name}/` : name;
+
+        const line = `${prefix}${branch}${displayName}`;
+
+        // 文件只输出一行，不继续向下遍历
+        if (!isDirectory) {
+          return [line];
+        }
+
+        // 最后一个同级项目下面不再画竖线
+        const childPrefix = prefix + (isLast ? "    " : "│   ");
+
+        return [
+          line,
+          ...buildTreeLines(child, childPrefix),
+        ];
+      });
     }
 
     // 当前目录下可以 cd 进入的目标，以及返回根目录 / 上一级的选项
@@ -364,6 +394,14 @@ STACK: HTML / CSS / JavaScript`
         : `~/${pathSegments.join("/")}`;
     }
 
+    function getWorkingDirectory() {
+      const basePath = "/home/guest";
+
+      return currentPath.length === 0
+        ? basePath
+        : `${basePath}/${currentPath.join("/")}`;
+    }
+
     function getPromptPath() {
       return `:${getPathLabel(currentPath)}$`;
     }
@@ -476,6 +514,30 @@ STACK: HTML / CSS / JavaScript`
             "response-block",
             listing ? listing.join("\n") : node.content || ""
           );
+          return;
+        }
+
+        if (command === "pwd") {
+          await appendBlock(
+            "response-block",
+            getWorkingDirectory()
+          );
+          return;
+        }
+
+        if (command === "tree") {
+          const node = getNode(currentPath);
+
+          const lines = [
+            ".",
+            ...buildTreeLines(node),
+          ];
+
+          await appendBlock(
+            "response-block",
+            lines.join("\n")
+          );
+
           return;
         }
 
@@ -665,7 +727,7 @@ STACK: HTML / CSS / JavaScript`
       setBusy(true);
 
       try {
-        setPrompt("root@Mikuuuuuchan", ":~~#");
+        setPrompt("root@Mikuuuuuchan", ":~#");
 
         await sleep(400);
 
@@ -674,7 +736,7 @@ STACK: HTML / CSS / JavaScript`
         const cursor = document.createElement("span");
         cursor.className = "boot-cursor";
 
-        line.textContent = "root@Mikuuuuuchan:~~# ";
+        line.textContent = "root@Mikuuuuuchan:~# ";
 
         // 使用独立元素显示矩形光标
         line.appendChild(cursor);
