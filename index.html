@@ -279,7 +279,16 @@ STACK: HTML / CSS / JavaScript`
           return ["cd"];
         }
 
-        const partial = endsWithSpace ? "" : (parts[1] || "").toLowerCase();
+        // 参数从去掉末尾空白后的输入解析：
+        // 自动补全追加的尾随空格不应把已输入的目录名清空
+        const argumentParts = value.trimEnd().split(/\s+/);
+        if (argumentParts.length > 2) {
+          return [];
+        }
+
+        const partial = argumentParts.length > 1
+          ? (argumentParts[1] || "").toLowerCase()
+          : "";
 
         return getDirectoryCandidates(partial);
       }
@@ -485,6 +494,11 @@ STACK: HTML / CSS / JavaScript`
         }
 
         if (command === "cd") {
+          if (args.length > 1) {
+            await appendBlock("error-block", "cd: too many arguments");
+            return;
+          }
+
           const target = args[0] || "";
           const nextPath = resolveTargetPath(target);
 
