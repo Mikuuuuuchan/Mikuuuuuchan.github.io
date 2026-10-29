@@ -12,12 +12,70 @@
 
   --border: #29452f;
   --accent: var(--text-primary);
+  --chrome: #0c130d;
+  --text-placeholder: #617862;
+  --cursor: #ffffff;
+  --grid: rgba(184, 237, 133, 0.025);
+  --glow: rgba(184, 237, 133, 0.3);
+  --shadow: rgba(0, 0, 0, 0.3);
 
   --font-body: "Cascadia Code", "Consolas",
     "Microsoft YaHei", monospace;
 
   --terminal-width: 1200px;
   --radius: 8px;
+}
+
+/* classic 使用 :root 原有配色；其余主题只覆盖颜色变量。 */
+:root[data-theme="amber"] {
+  --background: #120d07;
+  --surface: #21180d;
+  --surface-hover: #302313;
+  --text-primary: #f2bf69;
+  --text-heading: #ffe0a6;
+  --text-muted: #c2a47b;
+  --text-error: #ff9b85;
+  --border: #665033;
+  --chrome: #191108;
+  --text-placeholder: #b09a7b;
+  --cursor: #ffe0a6;
+  --grid: rgba(242, 191, 105, 0.025);
+  --glow: rgba(242, 191, 105, 0.3);
+}
+
+:root[data-theme="arctic"] {
+  --background: #080f1b;
+  --surface: #111e30;
+  --surface-hover: #1b2d43;
+  --text-primary: #91d8f7;
+  --text-heading: #d0edff;
+  --text-muted: #9bb2ca;
+  --text-error: #ffabb6;
+  --border: #3e5875;
+  --chrome: #0c1625;
+  --text-placeholder: #8fa8c1;
+  --cursor: #d0edff;
+  --grid: rgba(145, 216, 247, 0.025);
+  --glow: rgba(145, 216, 247, 0.3);
+}
+
+:root[data-theme="paper"] {
+  color-scheme: light;
+  --background: #eeeade;
+  --surface: #faf7ef;
+  --surface-hover: #e9e7dc;
+  --text-primary: #33473c;
+  --text-heading: #253c30;
+  --text-muted: #62665d;
+  --text-error: #a12d32;
+  --border: #b6bcac;
+  --accent: #356547;
+  --chrome: #e4e3d7;
+  --text-placeholder: #696d63;
+  --cursor: #356547;
+  --grid: rgba(53, 101, 71, 0.04);
+  --glow: rgba(53, 101, 71, 0.2);
+  --shadow: rgba(45, 54, 40, 0.15);
 }
 
 * {
@@ -52,12 +110,12 @@ body::before {
 
   background-image:
     linear-gradient(
-      rgba(184, 237, 133, 0.025) 1px,
+      var(--grid) 1px,
       transparent 1px
     ),
     linear-gradient(
       90deg,
-      rgba(184, 237, 133, 0.025) 1px,
+      var(--grid) 1px,
       transparent 1px
     );
   background-size: 32px 32px;
@@ -77,7 +135,7 @@ body::before {
   border-radius: var(--radius);
   background: var(--surface);
 
-  box-shadow: 0 20px 70px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 20px 70px var(--shadow);
 }
 
 .terminal-titlebar {
@@ -89,7 +147,7 @@ body::before {
   gap: 16px;
 
   border-bottom: 1px solid var(--border);
-  background: #0c130d;
+  background: var(--chrome);
 }
 
 .window-dots {
@@ -106,7 +164,7 @@ body::before {
 }
 
 .window-dots span:first-child {
-  background: #b8ed85;
+  background: var(--text-primary);
 }
 
 .window-title {
@@ -218,7 +276,7 @@ body::before {
 }
 
 #command-input::placeholder {
-  color: #617862;
+  color: var(--text-placeholder);
 }
 
 .terminal-hint {
@@ -235,7 +293,7 @@ body::before {
   gap: 10px;
 
   border-top: 1px solid var(--border);
-  background: #0c130d;
+  background: var(--chrome);
 
   color: var(--text-muted);
   font-size: 10px;
@@ -249,7 +307,7 @@ body::before {
   margin-right: 7px;
   border-radius: 50%;
   background: var(--text-primary);
-  box-shadow: 0 0 8px rgba(184, 237, 133, 0.3);
+  box-shadow: 0 0 8px var(--glow);
 }
 
 @keyframes appear {
@@ -337,14 +395,14 @@ body::before {
   white-space: pre-wrap;
 }
 
-/* 启动阶段：白色矩形光标 */
+/* 启动阶段：主题矩形光标 */
 .boot-cursor {
   display: inline-block;
   width: 0.62em;
   height: 1.05em;
   margin-left: 2px;
   vertical-align: -0.12em;
-  background: #ffffff;
+  background: var(--cursor);
   animation: cursor-blink 1s step-end infinite;
 }
 
@@ -387,14 +445,14 @@ body::before {
   font-size: 13px;
 }
 
-/* 白色矩形光标 */
+/* 主题矩形光标 */
 .input-cursor {
   position: absolute;
   left: 0;
   top: 50%;
   width: 0.62em;
   height: 1.05em;
-  background: #fff;
+  background: var(--cursor);
   pointer-events: none;
   transform: translateY(-50%);
   animation: cursor-blink 1s step-end infinite;

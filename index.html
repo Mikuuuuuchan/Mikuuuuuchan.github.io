@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="classic">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -68,6 +68,10 @@
     let historyIndex = 0;
     let isStreaming = false;
 
+    // 主题仅保存在当前页面会话中，刷新后恢复 classic。
+    const themes = ["classic", "amber", "arctic", "paper"];
+    let currentTheme = "classic";
+
     // 输出速度：每批输出几个字符，以及每批之间的间隔
     const STREAM_CHUNK_SIZE = 4;
     const STREAM_DELAY = 5;
@@ -119,6 +123,7 @@ Python \ C++
   cd <目录名> 切换目录
   pwd        显示当前目录
   tree       显示文件结构
+  style [主题名] 查看或切换主题
   projects   查看项目(施工中)
   learning   查看学习记录(施工中)
   notes      查看随笔与思考(施工中)
@@ -133,7 +138,7 @@ Python \ C++
     };
 
     // 通用命令：任何目录下都可以使用
-    const baseCommands = ["help", "whoami", "ls", "cd", "pwd","tree", "clear", "home",];
+    const baseCommands = ["help", "whoami", "ls", "cd", "pwd","tree", "clear", "home", "style",];
 
     // 虚拟文件系统：cd、ls 与 Tab 补全共用这一份目录定义
     // content 为该目录可直接展示的文本，children 为其子目录
@@ -291,6 +296,24 @@ STACK: HTML / CSS / JavaScript`
           : "";
 
         return getDirectoryCandidates(partial);
+      }
+
+      // style 参数复用有效主题集合；保留裸命令的名称补全行为。
+      if (parts[0].toLowerCase() === "style" && parts.length > 1) {
+        const argumentParts = value.trimEnd().split(/\s+/);
+        if (argumentParts.length > 2) {
+          return [];
+        }
+
+        const partial = (argumentParts[1] || "").toLowerCase();
+        // 已完成的参数后有空白时，不再改写输入或重新列出主题。
+        if (endsWithSpace && themes.includes(partial)) {
+          return [];
+        }
+
+        return themes
+          .filter(theme => theme.startsWith(partial))
+          .map(theme => `style ${theme}`);
       }
 
       // 补全命令名
@@ -493,6 +516,31 @@ STACK: HTML / CSS / JavaScript`
           return;
         }
 
+        if (command === "style") {
+          const available = `Available themes: ${themes.join(", ")}`;
+
+          if (args.length > 1) {
+            await appendBlock("error-block", "style: usage: style [theme]");
+            return;
+          }
+
+          if (args.length === 0) {
+            await appendBlock("response-block", `Current theme: ${currentTheme}\n${available}`);
+            return;
+          }
+
+          const theme = args[0].toLowerCase();
+          if (!themes.includes(theme)) {
+            await appendBlock("error-block", `style: unknown theme '${args[0]}'\n${available}`);
+            return;
+          }
+
+          currentTheme = theme;
+          document.documentElement.dataset.theme = theme;
+          await appendBlock("system-line", `Theme switched to ${theme}.`);
+          return;
+        }
+
         if (command === "cd") {
           if (args.length > 1) {
             await appendBlock("error-block", "cd: too many arguments");
@@ -640,10 +688,15 @@ STACK: HTML / CSS / JavaScript`
 
         lastCompletionDisplayValue = value;
 
-        // 无法继续补全时，显示候选项
+        // 仅在参数候选的显示文本中去掉当前命令前缀，保留原始候选。
+        const inputParts = value.split(/\s+/);
+        const argumentCommand = inputParts.length > 1
+          ? inputParts[0].toLowerCase()
+          : null;
         const displayCandidates = candidates.map(candidate => {
-          return candidate.startsWith("cd ")
-            ? candidate.slice(3)
+          const prefix = candidate.match(/^(\S+)\s+/);
+          return argumentCommand && prefix && prefix[1].toLowerCase() === argumentCommand
+            ? candidate.slice(prefix[0].length)
             : candidate;
         });
 
