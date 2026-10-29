@@ -124,6 +124,7 @@ Python \ C++
   cd <目录名> 切换目录
   pwd        显示当前目录
   tree       显示文件结构
+  cat <文件名> 查看文本文件
   style [主题名] 查看或切换主题
   projects   查看项目(施工中)
   learning   查看学习记录(施工中)
@@ -139,7 +140,7 @@ Python \ C++
     };
 
     // 通用命令：任何目录下都可以使用
-    const baseCommands = ["help", "whoami", "ls", "cd", "pwd","tree", "clear", "home", "style", "neofetch",];
+    const baseCommands = ["help", "whoami", "ls", "cd", "pwd","tree", "cat", "clear", "home", "style", "neofetch",];
 
     // 虚拟文件系统：cd、ls 与 Tab 补全共用这一份目录定义
     // content 为该目录可直接展示的文本，children 为其子目录
@@ -189,7 +190,16 @@ personal-homepage/
 
 当前状态：施工中
 
-未来可以在这里记录文章、复盘与思考。`
+未来可以在这里记录文章、复盘与思考。`,
+          children: {
+            // 已登记的真实文本文件：type 标记为文件节点，
+            // textPath 指向仓库中同路径的静态 .txt，cat 只允许读取该登记路径
+            "welcome.txt": {
+              type: "file",
+              lsLabel: "welcome.txt",
+              textPath: "notes/welcome.txt"
+            }
+          }
         },
         about: {
           // 根目录 ls 沿用现有展示习惯，about 不带斜杠
@@ -265,6 +275,36 @@ STACK: HTML / CSS / JavaScript`
         .map(name => `cd ${name}`);
     }
 
+    // cat 参数候选：当前虚拟文件系统中已登记且带 textPath 的可读文件。
+    // 目录部分复用 resolveTargetPath 解析，与 cat 执行时支持的路径形式
+    // （当前目录 / 相对路径 / ~/ / ..）保持一致；不单独维护文件名列表。
+    function getCatFileCandidates(argument) {
+      const slashIndex = argument.lastIndexOf("/");
+      const directoryPart = slashIndex >= 0 ? argument.slice(0, slashIndex + 1) : "";
+      const namePrefix = slashIndex >= 0 ? argument.slice(slashIndex + 1) : argument;
+
+      let directoryNode;
+      if (directoryPart) {
+        const directoryPath = resolveTargetPath(directoryPart);
+        if (!directoryPath) return [];
+        directoryNode = getNode(directoryPath);
+      } else {
+        directoryNode = getNode(currentPath);
+      }
+
+      if (!directoryNode || !directoryNode.children) return [];
+
+      const partial = namePrefix.toLowerCase();
+
+      return Object.keys(directoryNode.children)
+        .filter(name => {
+          const child = directoryNode.children[name];
+          return child.type === "file" && child.textPath;
+        })
+        .filter(name => name.toLowerCase().startsWith(partial))
+        .map(name => `cat ${directoryPart}${name}`);
+    }
+
     function getCommandCandidates(partial) {
       const rootEntries = currentPath.length === 0 && fileSystem.children
         ? Object.keys(fileSystem.children)
@@ -297,6 +337,28 @@ STACK: HTML / CSS / JavaScript`
           : "";
 
         return getDirectoryCandidates(partial);
+      }
+
+      // cat 之后补全已登记的可读文本文件
+      if (parts[0].toLowerCase() === "cat") {
+        if (parts.length === 1 && !endsWithSpace) {
+          return ["cat"];
+        }
+
+        // 与 cd 相同：参数从去掉末尾空白后的输入解析；多参数输入不改写
+        const argumentParts = value.trimEnd().split(/\s+/);
+        if (argumentParts.length > 2) {
+          return [];
+        }
+
+        const argument = argumentParts.length > 1 ? argumentParts[1] : "";
+
+        // 已补全完整的文件名后带有空格时，不重新解析为空并列出全部候选
+        if (endsWithSpace && argument) {
+          return [];
+        }
+
+        return getCatFileCandidates(argument);
       }
 
       // style 参数复用有效主题集合；保留裸命令的名称补全行为。
@@ -658,6 +720,72 @@ STACK: HTML / CSS / JavaScript`
           }
 
           await appendNeofetchCard();
+          return;
+        }
+
+        if (command === "cat") {
+          if (args.length === 0) {
+            await appendBlock("error-block", "cat: usage: cat <文件名>");
+            return;
+          }
+
+          // 第一版明确拒绝多文件参数，不静默忽略
+          if (args.length > 1) {
+            await appendBlock(
+              "error-block",
+              "cat: too many arguments\ncat: usage: cat <文件名>"
+            );
+            return;
+          }
+
+          const target = args[0];
+          // 复用现有路径解析，解析结果始终限制在虚拟文件系统登记的节点内
+          const targetPath = resolveTargetPath(target);
+
+          if (!targetPath) {
+            await appendBlock(
+              "error-block",
+              `cat: ${target}: No such file or directory`
+            );
+            return;
+          }
+
+          const targetNode = getNode(targetPath);
+
+          if (targetNode.type !== "file") {
+            await appendBlock(
+              "error-block",
+              `cat: ${target}: Is a directory`
+            );
+            return;
+          }
+
+          if (!targetNode.textPath) {
+            await appendBlock(
+              "error-block",
+              `cat: ${target}: 该文件暂未登记可读取的文本来源`
+            );
+            return;
+          }
+
+          // fetch 的 URL 只取自节点登记的 textPath 常量，不拼接用户输入；
+          // 相对路径以当前页面为基准，GitHub Pages 下即仓库根目录
+          try {
+            const response = await fetch(targetNode.textPath);
+
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}`);
+            }
+
+            // appendBlock 通过 textContent 写入 <pre>，
+            // 文件内容不会被当作 HTML 解析或执行
+            await appendBlock("response-block", await response.text());
+          } catch (error) {
+            await appendBlock(
+              "error-block",
+              `cat: ${target}: 读取失败（${error.message}）`
+            );
+          }
           return;
         }
 
